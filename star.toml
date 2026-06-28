@@ -31,5 +31,5 @@ exports = ["metrics"]
 # Renovate bumps `tag` + `digest` when a new bundle publishes (see renovate.json).
 [governance]
 bundle = "oci://forgejo.notusmi.com/furnace/policy"
-tag    = "policy-v1"
-digest = "sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
+tag    = "policy-v2"
+digest = "sha256:3bbda32ae49601b974d87f80e682e56cac442f77f8f5e6ae46bb3bb57ead2a2f"
