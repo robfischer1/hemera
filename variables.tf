@@ -12,7 +12,7 @@ variable "otelcol_image" {
   type        = string
   description = "OpenTelemetry Collector (contrib distro — has the loki/prometheusremotewrite exporters)."
   # NB: 0.116.0 ships a broken image (core + contrib both fail `exec /otelcol*`).
-  default     = "otel/opentelemetry-collector-contrib:0.114.0"
+  default = "otel/opentelemetry-collector-contrib:0.114.0"
 }
 
 variable "prometheus_image" {
@@ -54,7 +54,23 @@ variable "metrics_retention" {
 # ---------------------------------------------------------------------------
 variable "grafana_admin_password" {
   type        = string
-  description = "Grafana admin password. Override at apply from bws; never commit a real value."
+  description = "Grafana admin password (break-glass local admin). Override at apply from bws; never commit a real value."
   sensitive   = true
   default     = "admin"
+}
+
+# ---------------------------------------------------------------------------
+# Grafana SSO front — fronted by Caddy (host-net) on a loopback host port, with
+# the tsauth Remote-User shim mapped to Grafana's auth.proxy X-WEBAUTH-USER.
+# ---------------------------------------------------------------------------
+variable "grafana_domain" {
+  type        = string
+  description = "External FQDN Caddy serves Grafana on (ACME cert auto-provisioned)."
+  default     = "grafana.notusmi.com"
+}
+
+variable "grafana_host_port" {
+  type        = number
+  description = "Loopback host port (127.0.0.1) Caddy reverse-proxies to. tantalus=31091, charon=31092."
+  default     = 31093
 }

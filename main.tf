@@ -158,11 +158,29 @@ resource "docker_container" "grafana" {
   restart = "unless-stopped"
 
   env = [
-    "GF_SECURITY_ADMIN_PASSWORD=${var.grafana_admin_password}",
+    "GF_SECURITY_ADMIN_PASSWORD=${var.grafana_admin_password}", # break-glass local admin
     "GF_USERS_DEFAULT_THEME=dark",
-    # Behind SSO at deploy; serve under the eventual reverse-proxy host cleanly.
-    "GF_SERVER_ROOT_URL=%(protocol)s://%(domain)s/",
+    "GF_SERVER_DOMAIN=${var.grafana_domain}",
+    "GF_SERVER_ROOT_URL=https://${var.grafana_domain}/",
+    # auth.proxy — trust the X-WEBAUTH-USER header Caddy maps from the tsauth
+    # Remote-User shim (same pattern Forgejo uses). Auto-create the user; the
+    # single tailnet identity (rob) becomes an Org Admin. The security boundary
+    # is the 127.0.0.1 host-port binding + Caddy's forward_auth — Grafana is not
+    # on mnemosyne-net, so no other star can reach :3000 to spoof the header.
+    "GF_AUTH_PROXY_ENABLED=true",
+    "GF_AUTH_PROXY_HEADER_NAME=X-WEBAUTH-USER",
+    "GF_AUTH_PROXY_HEADER_PROPERTY=username",
+    "GF_AUTH_PROXY_AUTO_SIGN_UP=true",
+    "GF_AUTH_PROXY_ENABLE_LOGIN_TOKEN=true",
+    "GF_USERS_AUTO_ASSIGN_ORG_ROLE=Admin",
   ]
+
+  # Loopback host port for the host-networked Caddy to reach (no tailnet exposure).
+  ports {
+    internal = 3000
+    external = var.grafana_host_port
+    ip       = "127.0.0.1"
+  }
 
   upload {
     content = file("${path.module}/config/grafana/datasources.yaml")
@@ -182,7 +200,7 @@ resource "docker_container" "grafana" {
     container_path = "/var/lib/grafana"
   }
 
-  # hemera-net to reach the datasources; mnemosyne-net so the SSO front can dial it.
+  # hemera-net only — reaches the datasources; Caddy reaches it via the loopback
+  # host port above, NOT the docker net, so it stays off mnemosyne-net.
   networks_advanced { name = docker_network.hemera.name }
-  networks_advanced { name = "mnemosyne-net" }
 }
