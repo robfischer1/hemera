@@ -172,6 +172,11 @@ resource "docker_container" "grafana" {
     "GF_AUTH_PROXY_HEADER_PROPERTY=username",
     "GF_AUTH_PROXY_AUTO_SIGN_UP=true",
     "GF_AUTH_PROXY_ENABLE_LOGIN_TOKEN=true",
+    # Defense-in-depth: only trust the X-WEBAUTH-USER header from the hemera-net
+    # subnet — the host-net Caddy reaches :3000 via the loopback host port, so the
+    # docker-proxy source is the hemera-net gateway. Nothing outside this net can
+    # spoof the header (Grafana is off mnemosyne-net; the host port is loopback-only).
+    "GF_AUTH_PROXY_WHITELIST=192.168.32.0/20",
     "GF_USERS_AUTO_ASSIGN_ORG_ROLE=Admin",
   ]
 
