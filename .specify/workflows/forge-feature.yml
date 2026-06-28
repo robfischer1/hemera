@@ -1,0 +1,66 @@
+# Forge feature-build workflow — drives ONE /design feature-node through spec-kit.
+# Poured by furnace into .specify/workflows/. Run once per feature:
+#
+#   specify workflow run .specify/workflows/forge-feature.yml \
+#     --input specify_brief="<feature head: Brief + Consumer + Success>" \
+#     --input plan_context="<feature planning-context tail>"
+#
+# The HEAD (Brief / Consumer / Success) seeds /specify — WHAT/WHY, self-contained.
+# The TAIL (Scope / Inter-feature seams / Shared-data-model slice / Touches(RR) /
+#   Prerequisites / Decisions-slice) feeds /plan. No boilerplate needed on the input:
+#   the Forge `speckit.plan` command override already declares the planning context
+#   AUTHORITATIVE and reconciles it (does not regenerate from the spec).
+#
+# Gateless by design — built for headless dispatch (gemini -p -y). For interactive
+# use, insert a `type: gate` step between specify and plan to review the spec first.
+
+schema_version: "1.0"
+workflow:
+  id: "forge-feature"
+  name: "Forge Feature Build"
+  version: "1.0.0"
+  author: "Forge / furnace"
+  description: "Drive one /design feature-node through spec-kit (specify -> plan -> tasks), feeding the planning-context tail to the Forge speckit.plan override."
+
+requires:
+  speckit_version: ">=0.8.5"
+  integrations:
+    # Advisory, non-exhaustive. Runs against the project's initialized integration
+    # as long as it provides the core specify/plan/tasks/implement commands.
+    any:
+      - "gemini"
+      - "claude"
+
+inputs:
+  specify_brief:
+    type: string
+    required: true
+    prompt: "Feature head — build {what} for {consumer} so that {why}"
+  plan_context:
+    type: string
+    required: true
+    prompt: "Feature planning-context tail (authoritative substrate for /plan)"
+  run_implement:
+    type: boolean
+    default: false
+
+steps:
+  - id: specify
+    command: speckit.specify
+    input:
+      args: "{{ inputs.specify_brief }}"
+
+  - id: plan
+    command: speckit.plan
+    input:
+      args: "{{ inputs.plan_context }}"
+
+  - id: tasks
+    command: speckit.tasks
+
+  - id: maybe-implement
+    type: if
+    condition: "{{ inputs.run_implement == true }}"
+    then:
+      - id: implement
+        command: speckit.implement

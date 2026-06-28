@@ -1,0 +1,19 @@
+# This file records the copier template + answers for this repo.
+# Managed by Copier — do not edit by hand. Run `copier update` to pull template
+# changes (3-way merged against your local edits).
+_commit: 8459ab0
+_src_path: C:/Users/robfi/Forge/Outputs/tofu-repo-template
+author_name: Rob Fischer
+charter: 'Constellation observability: OTLP ingest, LGTM storage, Grafana dashboards.'
+cluster: pantheon
+description: Constellation observability plane — OTel collector + LGTM backends +
+    Grafana.
+docker_host: ssh://rob@nas01
+interface_protocol: otlp
+interstellar: false
+project_name: Hemera
+service_name: hemera
+star_namespace: hemera
+substrate_kind: container
+year: 2026
+
