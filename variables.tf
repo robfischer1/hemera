@@ -11,7 +11,8 @@ variable "docker_host" {
 variable "otelcol_image" {
   type        = string
   description = "OpenTelemetry Collector (contrib distro — has the loki/prometheusremotewrite exporters)."
-  default     = "otel/opentelemetry-collector-contrib:0.116.0"
+  # NB: 0.116.0 ships a broken image (core + contrib both fail `exec /otelcol*`).
+  default     = "otel/opentelemetry-collector-contrib:0.114.0"
 }
 
 variable "prometheus_image" {
