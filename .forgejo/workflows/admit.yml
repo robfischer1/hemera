@@ -22,7 +22,7 @@ on:
 
 env:
   REGISTRY: ${{ vars.REGISTRY || 'forgejo.notusmi.com' }}
-  CONSTELLATION_REF: "constellation @ git+https://github.com/robfischer1/constellation.git"
+  CONSTELLATION_REF: "constellation @ git+https://forgejo.notusmi.com/rob/constellation.git"
   # The --no-project uv runs below need >=3.11 (tomllib); the act image's
   # system python is 3.10. Pin a uv-managed interpreter for every step.
   UV_PYTHON: "3.12"
