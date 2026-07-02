@@ -29,6 +29,12 @@ jobs:
     runs-on: nas01
     container:
       image: catthehacker/ubuntu:act-22.04
+    # The runner's default `run` shell is sh (dash), which rejects
+    # `set -o pipefail` — every step here assumes bash. Born-with defect in
+    # the copier tofu-substrate variant; fix upstream in tofu-repo-template.
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: https://github.com/actions/checkout@v4
 
