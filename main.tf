@@ -51,6 +51,21 @@ resource "docker_container" "otelcol" {
     for_each = local.ext_nets
     content { name = networks_advanced.value }
   }
+
+  # Tailnet-bound OTLP ingest (gRPC + HTTP) for off-fleet emitters — the
+  # per-host Anvil otelcol agents forwarding Claude Code usage telemetry
+  # (DS-38). Bound to the tailnet IP, never 0.0.0.0; the in-container
+  # receiver already listens on 0.0.0.0, so publishing is sufficient.
+  ports {
+    internal = 4317
+    external = 4317
+    ip       = var.otlp_tailnet_ip
+  }
+  ports {
+    internal = 4318
+    external = 4318
+    ip       = var.otlp_tailnet_ip
+  }
 }
 
 # ---------------------------------------------------------------------------
@@ -198,6 +213,10 @@ resource "docker_container" "grafana" {
   upload {
     content = file("${path.module}/config/grafana/dashboards/fleet-overview.json")
     file    = "/var/lib/grafana/dashboards/fleet-overview.json"
+  }
+  upload {
+    content = file("${path.module}/config/grafana/dashboards/claude-usage.json")
+    file    = "/var/lib/grafana/dashboards/claude-usage.json"
   }
 
   volumes {

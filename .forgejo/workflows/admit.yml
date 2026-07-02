@@ -11,7 +11,8 @@
 #   5. build admission-input.json via constellation.gate (also the fail-closed
 #      interstellar-registry gate) · 6. conftest test admission-input.json
 #
-# Tool versions (pinned): cosign v2.2.4, oras 1.2.0, conftest 0.56.0, syft 0.117.0.
+# Tool versions: pinned in .forgejo/versions.env (the fleet SoT shape — the
+# signer and verifier load the same file, so cosign can never drift v2/v3).
 # constellation pin: bump CONSTELLATION_REF when a new governance release lands.
 
 name: admit
@@ -21,7 +22,10 @@ on:
 
 env:
   REGISTRY: ${{ vars.REGISTRY || 'forgejo.notusmi.com' }}
-  CONSTELLATION_REF: "constellation @ git+https://github.com/robfischer1/constellation.git"
+  CONSTELLATION_REF: "constellation @ git+https://forgejo.notusmi.com/rob/constellation.git"
+  # The --no-project uv runs below need >=3.11 (tomllib); the act image's
+  # system python is 3.10. Pin a uv-managed interpreter for every step.
+  UV_PYTHON: "3.12"
 
 jobs:
   gate:
@@ -29,8 +33,20 @@ jobs:
     runs-on: nas01
     container:
       image: catthehacker/ubuntu:act-22.04
+    # The runner's default `run` shell is sh (dash), which rejects
+    # `set -o pipefail` — every step here assumes bash. Born-with defect in
+    # the copier tofu-substrate variant; fix upstream in tofu-repo-template.
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: https://github.com/actions/checkout@v4
+
+      # Single source of truth for tool versions (fleet gate shape). Only
+      # KEY=VALUE lines are exported; comments/blanks are skipped so the
+      # $GITHUB_ENV parser never chokes.
+      - name: Load tool versions
+        run: grep -E '^[A-Z_]+=' .forgejo/versions.env >> "$GITHUB_ENV"
 
       - name: Install uv
         env:
@@ -40,36 +56,42 @@ jobs:
       - name: Install conftest
         run: |
           set -euo pipefail
-          VERSION="0.56.0"
-          curl -LO "https://github.com/open-policy-agent/conftest/releases/download/v${VERSION}/conftest_${VERSION}_Linux_x86_64.tar.gz"
-          tar -xzf "conftest_${VERSION}_Linux_x86_64.tar.gz" conftest
+          curl -LO --fail --retry 5 --retry-delay 2 --retry-all-errors "https://github.com/open-policy-agent/conftest/releases/download/v${CONFTEST_VERSION}/conftest_${CONFTEST_VERSION}_Linux_x86_64.tar.gz"
+          tar -xzf "conftest_${CONFTEST_VERSION}_Linux_x86_64.tar.gz" conftest
           install -m 0755 conftest /usr/local/bin/conftest
           conftest --version
 
       - name: Install cosign
         run: |
           set -euo pipefail
-          VERSION="v2.2.4"
-          curl -LO "https://github.com/sigstore/cosign/releases/download/${VERSION}/cosign-linux-amd64"
+          curl -LO --fail --retry 5 --retry-delay 2 --retry-all-errors "https://github.com/sigstore/cosign/releases/download/${COSIGN_VERSION}/cosign-linux-amd64"
           install -m 0755 cosign-linux-amd64 /usr/local/bin/cosign
           cosign version
 
       - name: Install syft
         run: |
           set -euo pipefail
-          VERSION="0.117.0"
-          curl -LO "https://github.com/anchore/syft/releases/download/v${VERSION}/syft_${VERSION}_linux_amd64.tar.gz"
-          tar -xzf "syft_${VERSION}_linux_amd64.tar.gz" syft
+          curl -LO --fail --retry 5 --retry-delay 2 --retry-all-errors "https://github.com/anchore/syft/releases/download/v${SYFT_VERSION}/syft_${SYFT_VERSION}_linux_amd64.tar.gz"
+          tar -xzf "syft_${SYFT_VERSION}_linux_amd64.tar.gz" syft
           install -m 0755 syft /usr/local/bin/syft
           syft version
 
       - name: Install oras
         run: |
           set -euo pipefail
-          VERSION="1.2.0"
-          curl -LO "https://github.com/oras-project/oras/releases/download/v${VERSION}/oras_${VERSION}_linux_amd64.tar.gz"
-          tar -xzf "oras_${VERSION}_linux_amd64.tar.gz" -C /usr/local/bin oras
+          curl -LO --fail --retry 5 --retry-delay 2 --retry-all-errors "https://github.com/oras-project/oras/releases/download/v${ORAS_VERSION}/oras_${ORAS_VERSION}_linux_amd64.tar.gz"
+          tar -xzf "oras_${ORAS_VERSION}_linux_amd64.tar.gz" -C /usr/local/bin oras
           oras version
+
+      # The furnace/policy package (and any image ref) requires an authenticated
+      # registry read — oras login writes ~/.docker/config.json, which cosign,
+      # oras, and syft all resolve.
+      - name: Registry login
+        env:
+          REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
+        run: |
+          set -euo pipefail
+          printf %s "${REGISTRY_TOKEN}" | oras login "${REGISTRY}" -u rob --password-stdin
 
       - name: Pull and verify policy bundle
         run: |
@@ -98,10 +120,10 @@ jobs:
           ")
           FULL_REF="${BUNDLE}:${TAG}@${DIGEST}"
           echo "Verifying bundle: ${FULL_REF}"
-          cosign verify \
-            --certificate-identity-regexp ".*" \
-            --certificate-oidc-issuer-regexp ".*" \
-            "${FULL_REF}"
+          # Keyed verification — the fleet signs with the constellation cosign
+          # key (cosign.pub committed at repo root); the old keyless form can
+          # never match a keyed signature.
+          cosign verify --key cosign.pub "${FULL_REF}"
           echo "Pulling bundle to policy/"
           oras pull "${FULL_REF}" --output policy/
 
@@ -116,7 +138,7 @@ jobs:
           print(data.get('image', {}).get('ref', ''))
           " 2>/dev/null || true)
           if [ -n "${IMAGE_REF}" ]; then
-            if cosign verify --certificate-identity-regexp ".*" --certificate-oidc-issuer-regexp ".*" "${IMAGE_REF}" 2>/dev/null; then
+            if cosign verify --key cosign.pub "${IMAGE_REF}" 2>/dev/null; then
               IMAGE_SIGNED="true"
             fi
             if syft "${IMAGE_REF}" -o spdx-json --file sbom.spdx.json 2>/dev/null; then

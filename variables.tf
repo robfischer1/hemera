@@ -40,12 +40,27 @@ variable "grafana_image" {
 }
 
 # ---------------------------------------------------------------------------
-# Retention — bounds the storage footprint on nas01 (the plan's open risk).
+# Retention — long window per the usage-telemetry charter (DS-38: rate-limit
+# windows + context% + session cost OVER TIME). The original 15d bound guarded
+# the nas01 storage footprint; measured 2026-07-02 the risk is moot: 5.3MiB of
+# TSDB for 14d of full-fleet volume against 340G free on /srv (~140MiB/yr).
 # ---------------------------------------------------------------------------
 variable "metrics_retention" {
   type        = string
   description = "Prometheus TSDB retention window."
-  default     = "15d"
+  default     = "730d"
+}
+
+# ---------------------------------------------------------------------------
+# OTLP ingest for off-fleet emitters — the tailnet-bound door per-host Anvil
+# otelcol agents ship to (Claude Code usage telemetry, DS-38). Tailnet-floor
+# standing, same as hades 8101 / corpus PG 5432: only tailnet members reach
+# it. East-west fleet traffic keeps the docker-net endpoint (hemera-otelcol).
+# ---------------------------------------------------------------------------
+variable "otlp_tailnet_ip" {
+  type        = string
+  description = "nas01 tailnet IP the OTLP host ports bind to (never 0.0.0.0)."
+  default     = "100.93.64.106"
 }
 
 # ---------------------------------------------------------------------------
