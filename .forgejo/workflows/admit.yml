@@ -83,6 +83,16 @@ jobs:
           tar -xzf "oras_${ORAS_VERSION}_linux_amd64.tar.gz" -C /usr/local/bin oras
           oras version
 
+      # The furnace/policy package (and any image ref) requires an authenticated
+      # registry read — oras login writes ~/.docker/config.json, which cosign,
+      # oras, and syft all resolve.
+      - name: Registry login
+        env:
+          REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
+        run: |
+          set -euo pipefail
+          printf %s "${REGISTRY_TOKEN}" | oras login "${REGISTRY}" -u rob --password-stdin
+
       - name: Pull and verify policy bundle
         run: |
           set -euo pipefail
@@ -110,10 +120,10 @@ jobs:
           ")
           FULL_REF="${BUNDLE}:${TAG}@${DIGEST}"
           echo "Verifying bundle: ${FULL_REF}"
-          cosign verify \
-            --certificate-identity-regexp ".*" \
-            --certificate-oidc-issuer-regexp ".*" \
-            "${FULL_REF}"
+          # Keyed verification — the fleet signs with the constellation cosign
+          # key (cosign.pub committed at repo root); the old keyless form can
+          # never match a keyed signature.
+          cosign verify --key cosign.pub "${FULL_REF}"
           echo "Pulling bundle to policy/"
           oras pull "${FULL_REF}" --output policy/
 
@@ -128,7 +138,7 @@ jobs:
           print(data.get('image', {}).get('ref', ''))
           " 2>/dev/null || true)
           if [ -n "${IMAGE_REF}" ]; then
-            if cosign verify --certificate-identity-regexp ".*" --certificate-oidc-issuer-regexp ".*" "${IMAGE_REF}" 2>/dev/null; then
+            if cosign verify --key cosign.pub "${IMAGE_REF}" 2>/dev/null; then
               IMAGE_SIGNED="true"
             fi
             if syft "${IMAGE_REF}" -o spdx-json --file sbom.spdx.json 2>/dev/null; then
