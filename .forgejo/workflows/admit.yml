@@ -11,7 +11,8 @@
 #   5. build admission-input.json via constellation.gate (also the fail-closed
 #      interstellar-registry gate) · 6. conftest test admission-input.json
 #
-# Tool versions (pinned): cosign v2.2.4, oras 1.2.0, conftest 0.56.0, syft 0.117.0.
+# Tool versions: pinned in .forgejo/versions.env (the fleet SoT shape — the
+# signer and verifier load the same file, so cosign can never drift v2/v3).
 # constellation pin: bump CONSTELLATION_REF when a new governance release lands.
 
 name: admit
@@ -38,6 +39,12 @@ jobs:
     steps:
       - uses: https://github.com/actions/checkout@v4
 
+      # Single source of truth for tool versions (fleet gate shape). Only
+      # KEY=VALUE lines are exported; comments/blanks are skipped so the
+      # $GITHUB_ENV parser never chokes.
+      - name: Load tool versions
+        run: grep -E '^[A-Z_]+=' .forgejo/versions.env >> "$GITHUB_ENV"
+
       - name: Install uv
         env:
           UV_INSTALL_DIR: /usr/local/bin
@@ -46,35 +53,31 @@ jobs:
       - name: Install conftest
         run: |
           set -euo pipefail
-          VERSION="0.56.0"
-          curl -LO "https://github.com/open-policy-agent/conftest/releases/download/v${VERSION}/conftest_${VERSION}_Linux_x86_64.tar.gz"
-          tar -xzf "conftest_${VERSION}_Linux_x86_64.tar.gz" conftest
+          curl -LO --fail --retry 5 --retry-delay 2 --retry-all-errors "https://github.com/open-policy-agent/conftest/releases/download/v${CONFTEST_VERSION}/conftest_${CONFTEST_VERSION}_Linux_x86_64.tar.gz"
+          tar -xzf "conftest_${CONFTEST_VERSION}_Linux_x86_64.tar.gz" conftest
           install -m 0755 conftest /usr/local/bin/conftest
           conftest --version
 
       - name: Install cosign
         run: |
           set -euo pipefail
-          VERSION="v2.2.4"
-          curl -LO "https://github.com/sigstore/cosign/releases/download/${VERSION}/cosign-linux-amd64"
+          curl -LO --fail --retry 5 --retry-delay 2 --retry-all-errors "https://github.com/sigstore/cosign/releases/download/${COSIGN_VERSION}/cosign-linux-amd64"
           install -m 0755 cosign-linux-amd64 /usr/local/bin/cosign
           cosign version
 
       - name: Install syft
         run: |
           set -euo pipefail
-          VERSION="0.117.0"
-          curl -LO "https://github.com/anchore/syft/releases/download/v${VERSION}/syft_${VERSION}_linux_amd64.tar.gz"
-          tar -xzf "syft_${VERSION}_linux_amd64.tar.gz" syft
+          curl -LO --fail --retry 5 --retry-delay 2 --retry-all-errors "https://github.com/anchore/syft/releases/download/v${SYFT_VERSION}/syft_${SYFT_VERSION}_linux_amd64.tar.gz"
+          tar -xzf "syft_${SYFT_VERSION}_linux_amd64.tar.gz" syft
           install -m 0755 syft /usr/local/bin/syft
           syft version
 
       - name: Install oras
         run: |
           set -euo pipefail
-          VERSION="1.2.0"
-          curl -LO "https://github.com/oras-project/oras/releases/download/v${VERSION}/oras_${VERSION}_linux_amd64.tar.gz"
-          tar -xzf "oras_${VERSION}_linux_amd64.tar.gz" -C /usr/local/bin oras
+          curl -LO --fail --retry 5 --retry-delay 2 --retry-all-errors "https://github.com/oras-project/oras/releases/download/v${ORAS_VERSION}/oras_${ORAS_VERSION}_linux_amd64.tar.gz"
+          tar -xzf "oras_${ORAS_VERSION}_linux_amd64.tar.gz" -C /usr/local/bin oras
           oras version
 
       - name: Pull and verify policy bundle
