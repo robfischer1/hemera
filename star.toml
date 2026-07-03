@@ -30,6 +30,6 @@ exports = ["metrics"]
 # Governance pin — the cosign-signed policy bundle this star subscribes to (F7).
 # Renovate bumps `tag` + `digest` when a new bundle publishes (see renovate.json).
 [governance]
-bundle = "oci://forgejo.notusmi.com/furnace/policy"
+bundle = "oci://forgejo.notusmi.com/rob/furnace/policy"
 tag    = "policy-v2"
 digest = "sha256:3bbda32ae49601b974d87f80e682e56cac442f77f8f5e6ae46bb3bb57ead2a2f"
