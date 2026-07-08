@@ -1,0 +1,42 @@
+# Aether (postgres-postgres-1) — SPOF alerting for the shared relational substrate.
+# Evaluated by Prometheus; visible in /alerts + Grafana. Delivery (Alertmanager /
+# contact point) is a follow-up.
+groups:
+  - name: aether
+    rules:
+      - alert: AetherUnreachable
+        expr: absent(postgresql_backends)
+        for: 2m
+        labels: { severity: critical, plane: aether }
+        annotations:
+          summary: "Aether is unreachable — the postgresql scrape returns no series (instance down or auth broken)."
+      - alert: AetherConnectionsHigh
+        expr: sum(postgresql_backends) / max(postgresql_connection_max) > 0.80
+        for: 5m
+        labels: { severity: warning, plane: aether }
+        annotations:
+          summary: "Aether connections >80% of max_connections ({{ $value | humanizePercentage }})."
+      - alert: AetherConnectionsCritical
+        expr: sum(postgresql_backends) / max(postgresql_connection_max) > 0.92
+        for: 2m
+        labels: { severity: critical, plane: aether }
+        annotations:
+          summary: "Aether connections >92% of max_connections — exhaustion imminent."
+  - name: aether-host
+    rules:
+      - alert: Nas01DiskLow
+        expr: |
+          system_filesystem_usage_bytes{state="free",type=~"zfs|ext4"}
+          / on(device,mountpoint) group_left
+          sum by(device,mountpoint)(system_filesystem_usage_bytes{type=~"zfs|ext4"})
+          < 0.12
+        for: 10m
+        labels: { severity: warning, plane: aether }
+        annotations:
+          summary: "nas01 {{ $labels.mountpoint }} <12% free — the ZFS-storm failure mode; Aether can stall when its volume fills."
+      - alert: Nas01DiskIOSaturated
+        expr: rate(system_disk_io_time_seconds_total[5m]) > 0.90
+        for: 10m
+        labels: { severity: warning, plane: aether }
+        annotations:
+          summary: "nas01 {{ $labels.device }} >90% IO-busy for 10m — write-storm pressure that can grind Aether to a halt."
