@@ -108,6 +108,12 @@ resource "docker_container" "prometheus" {
     file    = "/etc/prometheus/prometheus.yml"
   }
 
+  # Aether SPOF alert rules (rule_files in prometheus.yml points here).
+  upload {
+    content = file("${path.module}/config/prometheus/rules/aether.yml")
+    file    = "/etc/prometheus/rules/aether.yml"
+  }
+
   volumes {
     volume_name    = "hemera_prometheus-data"
     container_path = "/prometheus"
@@ -227,6 +233,10 @@ resource "docker_container" "grafana" {
   upload {
     content = file("${path.module}/config/grafana/dashboards/fleet-overview.json")
     file    = "/var/lib/grafana/dashboards/fleet-overview.json"
+  }
+  upload {
+    content = file("${path.module}/config/grafana/dashboards/aether.json")
+    file    = "/var/lib/grafana/dashboards/aether.json"
   }
   upload {
     content = file("${path.module}/config/grafana/dashboards/claude-usage.json")

@@ -8,6 +8,11 @@ global:
   external_labels:
     plane: hemera
 
+# Aether (postgres-postgres-1) SPOF alerting — evaluated here; visible in /alerts
+# + Grafana. Delivery (Alertmanager / contact point) is a follow-up.
+rule_files:
+  - /etc/prometheus/rules/aether.yml
+
 scrape_configs:
   - job_name: prometheus
     static_configs:
