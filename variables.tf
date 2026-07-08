@@ -75,6 +75,19 @@ variable "grafana_admin_password" {
 }
 
 # ---------------------------------------------------------------------------
+# Aether DB scrape credential — the hemera_monitor role (pg_monitor) the OTel
+# postgresql receiver authenticates as. Override at apply from bws (pantheon:
+# AETHER_MONITOR_PASSWORD); never commit a real value. Empty default => the
+# receiver fails auth (safe: no plaintext fallback).
+# ---------------------------------------------------------------------------
+variable "aether_monitor_password" {
+  type        = string
+  description = "Password for the hemera_monitor role on Aether (postgres-postgres-1), read by the collector's postgresql receiver."
+  sensitive   = true
+  default     = ""
+}
+
+# ---------------------------------------------------------------------------
 # Grafana SSO front — fronted by Caddy (host-net) on a loopback host port, with
 # the tsauth Remote-User shim mapped to Grafana's auth.proxy X-WEBAUTH-USER.
 # ---------------------------------------------------------------------------
