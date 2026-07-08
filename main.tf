@@ -45,6 +45,20 @@ resource "docker_container" "otelcol" {
     file    = "/etc/otelcol-contrib/config.yaml"
   }
 
+  # Aether DB scrape credential — the hemera_monitor role (pg_monitor). Sourced at
+  # apply from bws (pantheon: AETHER_MONITOR_PASSWORD); never committed. The
+  # postgresql receiver reads it via ${env:AETHER_MONITOR_PASSWORD}.
+  env = ["AETHER_MONITOR_PASSWORD=${var.aether_monitor_password}"]
+
+  # Host filesystem (read-only) for the hostmetrics receiver — nas01 disk / IO /
+  # memory. root_path=/hostfs in the collector config points here, so an
+  # approaching disk-full alerts before it grinds Aether to a halt.
+  volumes {
+    host_path      = "/"
+    container_path = "/hostfs"
+    read_only      = true
+  }
+
   # Private net + the two fleet nets stars dial east-west.
   networks_advanced { name = docker_network.hemera.name }
   dynamic "networks_advanced" {

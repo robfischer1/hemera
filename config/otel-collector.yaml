@@ -9,6 +9,33 @@ receivers:
       http:
         endpoint: 0.0.0.0:4318
 
+  # Aether (postgres-postgres-1) — the shared relational substrate, a SPOF now
+  # (10 star DBs + phdb + tofu state on one instance). Scraped read-only via the
+  # hemera_monitor role (pg_monitor). Reachable east-west on pantheon.
+  postgresql:
+    endpoint: postgres-postgres-1:5432
+    transport: tcp
+    username: hemera_monitor
+    password: ${env:AETHER_MONITOR_PASSWORD}
+    databases: [] # all non-template databases
+    collection_interval: 30s
+    tls:
+      insecure: true
+
+  # nas01 host disk / IO / memory — the ZFS write-storm that triggered the DB
+  # consolidation was a HOST disk event Postgres metrics can't see. root_path is
+  # the read-only host mount (see main.tf: / -> /hostfs).
+  hostmetrics:
+    root_path: /hostfs
+    collection_interval: 30s
+    scrapers:
+      cpu:
+      load:
+      memory:
+      disk:
+      filesystem:
+      paging:
+
 processors:
   # Bound memory before it bites; batch before export.
   memory_limiter:
@@ -49,7 +76,7 @@ service:
       address: 0.0.0.0:8888
   pipelines:
     metrics:
-      receivers: [otlp]
+      receivers: [otlp, postgresql, hostmetrics]
       processors: [memory_limiter, batch]
       exporters: [prometheusremotewrite]
     logs:
