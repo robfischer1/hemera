@@ -2,7 +2,7 @@
 # Managed by Copier — do not edit by hand. Run `copier update` to pull template
 # changes (3-way merged against your local edits).
 _commit: 8459ab0
-_src_path: C:/Users/robfi/Forge/Outputs/tofu-repo-template
+_src_path: https://forgejo.notusmi.com/rob/tofu-repo-template.git
 author_name: Rob Fischer
 charter: 'Constellation observability: OTLP ingest, LGTM storage, Grafana dashboards.'
 cluster: pantheon
