@@ -24,3 +24,7 @@ override.tf.json
 AGENTS.md
 CLAUDE.md
 .claude/
+
+# Gemini Code Reviews
+2026-07-09 Gemini * Code Review.md
+
