@@ -242,6 +242,10 @@ resource "docker_container" "grafana" {
     content = file("${path.module}/config/grafana/dashboards/claude-usage.json")
     file    = "/var/lib/grafana/dashboards/claude-usage.json"
   }
+  upload {
+    content = file("${path.module}/config/grafana/dashboards/forgejo-ci.json")
+    file    = "/var/lib/grafana/dashboards/forgejo-ci.json"
+  }
 
   volumes {
     volume_name    = "hemera_grafana-data"
