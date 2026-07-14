@@ -40,9 +40,7 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: https://github.com/actions/checkout@v4
-
-      # Single source of truth for tool versions (fleet gate shape). Only
+      - uses: https://forgejo.notusmi.com/actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       # KEY=VALUE lines are exported; comments/blanks are skipped so the
       # $GITHUB_ENV parser never chokes.
       - name: Load tool versions
