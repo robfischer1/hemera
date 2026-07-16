@@ -13,6 +13,8 @@ namespace = "hemera"
 
 [logic]
 # Substrate stars have no application entrypoint; the IaC module is the entry.
+# Wave 7: the tofu root relocated to rob/infra (stacks/platform/observability).
+# entrypoint kept as the historical entry — the module is no longer in this repo.
 entrypoint = "main.tf"
 
 [interface]

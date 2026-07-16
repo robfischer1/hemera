@@ -11,6 +11,13 @@ hand-composed. All images are
 **upstream** (no custom build); each service's config is injected via Tofu `upload`
 blocks. Health is judged by **Nyx**, so this layer stays dumb (`restart=unless-stopped`).
 
+> **The IaC root has moved (Recentralization Wave 7).** Hemera's OpenTofu root
+> (`main.tf` + `config/`) now lives in **`rob/infra` at `stacks/platform/observability`**
+> and deploys via `deploy-platform.yml` (`stack=observability`; pg state schema
+> `hemera`, unchanged). This repo keeps the star manifest, docs, admission gate,
+> and specs — it is no longer a tofu root. Sections below that reference `main.tf`,
+> `backend.tf`, or a manual `tofu apply` describe the pre-Wave-7 layout.
+
 ## The stack
 
 | Service | Image | Role | Reached at (on the docker net) |
@@ -55,9 +62,12 @@ fronted by Caddy/tsidp SSO at deploy — a loopback-only host port
 
 ## Deploy
 
-The parent runs the live apply on nas01, from `~/hemera` (never from a worktree —
-shared state). Hemera is not in `rob/infra`'s services catalog (it's a
-multi-container substrate root, not an app star); deploys stay manual on nas01.
+**Deploys now run via `rob/infra`** — `deploy-platform.yml` with `stack=observability`
+(pg state schema `hemera`; both secrets resolved from Calypso over Forgejo-OIDC:
+`aether_monitor_password` ← `/misc AETHER_MONITOR_PASSWORD`, `grafana_admin_password`
+← `/hemera HEMERA_GRAFANA_ADMIN_PASSWORD`). The manual nas01 recipe below is retained
+for reference only (pre-Wave-7; Hemera is a bespoke multi-container substrate root,
+not an app star, so it lives under `stacks/platform/`, not the services catalog).
 
 Secrets come from **Calypso** (Infisical) via the nas01 machine identity. Both
 TF_VARs are **mandatory**: an apply without `TF_VAR_aether_monitor_password`
