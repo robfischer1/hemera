@@ -151,6 +151,46 @@ resource "docker_container" "loki" {
 }
 
 # ---------------------------------------------------------------------------
+# promtail — docker-log collection for the signed-state spine (Braid B3).
+# Docker service discovery over the socket (read-only) keeps ONLY the
+# ouranos-* containers; lines push to Loki, and the derived REFUSED counter
+# is scraped by the collector (config/otel-collector.yaml) and alerted in
+# rules/signed-state.yml. Log streaming rides the Docker API — no
+# /var/lib/docker/containers mount needed.
+# ---------------------------------------------------------------------------
+resource "docker_image" "promtail" {
+  name         = var.promtail_image
+  keep_locally = true
+}
+
+resource "docker_container" "promtail" {
+  name    = "hemera-promtail"
+  image   = docker_image.promtail.image_id
+  restart = "unless-stopped"
+
+  command = ["-config.file=/etc/promtail/config.yaml"]
+
+  upload {
+    content = file("${path.module}/config/promtail.yaml")
+    file    = "/etc/promtail/config.yaml"
+  }
+
+  volumes {
+    host_path      = "/var/run/docker.sock"
+    container_path = "/var/run/docker.sock"
+    read_only      = true
+  }
+
+  # positions survive restarts — a named volume like its siblings.
+  volumes {
+    volume_name    = "hemera_promtail-positions"
+    container_path = "/positions"
+  }
+
+  networks_advanced { name = docker_network.hemera.name }
+}
+
+# ---------------------------------------------------------------------------
 # Tempo — trace store (local backend). OTLP receiver on 4317/4318.
 # ---------------------------------------------------------------------------
 resource "docker_image" "tempo" {

@@ -102,3 +102,9 @@ variable "grafana_host_port" {
   description = "Loopback host port (127.0.0.1) Caddy reverse-proxies to. tantalus=31091, charon=31092."
   default     = 31093
 }
+
+variable "promtail_image" {
+  type        = string
+  description = "promtail — docker-log collection for the signed-state spine (Braid B3); Renovate-bumped like its siblings."
+  default     = "grafana/promtail:3.4.1"
+}

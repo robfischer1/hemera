@@ -12,6 +12,7 @@ global:
 # + Grafana. Delivery (Alertmanager / contact point) is a follow-up.
 rule_files:
   - /etc/prometheus/rules/aether.yml
+  - /etc/prometheus/rules/signed-state.yml
 
 scrape_configs:
   - job_name: prometheus

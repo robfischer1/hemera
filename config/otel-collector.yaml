@@ -36,6 +36,23 @@ receivers:
       filesystem:
       paging:
 
+  # The signed-state spine (Golden Braid B3): scrape the PDP's native
+  # /metrics (request rate + consult latency; deny-rate waits on OPA decision
+  # logging — the surfaced open) and promtail's derived counters (the REFUSED
+  # metric). Scraped HERE because the collector rides pantheon; the
+  # Prometheus container does not.
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: ouranos-opa
+          scrape_interval: 30s
+          static_configs:
+            - targets: ["ouranos-opa:8181"]
+        - job_name: hemera-promtail
+          scrape_interval: 30s
+          static_configs:
+            - targets: ["hemera-promtail:9080"]
+
 processors:
   # Bound memory before it bites; batch before export.
   memory_limiter:
@@ -76,7 +93,7 @@ service:
       address: 0.0.0.0:8888
   pipelines:
     metrics:
-      receivers: [otlp, postgresql, hostmetrics]
+      receivers: [otlp, postgresql, hostmetrics, prometheus]
       processors: [memory_limiter, batch]
       exporters: [prometheusremotewrite]
     logs:
