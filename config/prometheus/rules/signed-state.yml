@@ -1,0 +1,36 @@
+# Signed-state spine alerts (Golden Braid B3). Evaluated here; visible in
+# /alerts + Grafana — delivery (Alertmanager / contact point) remains the
+# standing follow-up, same as aether.yml.
+groups:
+  - name: signed-state
+    rules:
+      # A REFUSED anywhere in the die consumers is the fail-closed design's
+      # deliberate 3am signal — keep-last-good keeps serving, but an operator
+      # must find out. promtail derives the counter from the log contract
+      # (`REFUSED {reason}`, one line per refresher cycle).
+      - alert: DieRefusalObserved
+        expr: increase(promtail_custom_refresher_refused_total[10m]) > 0
+        labels:
+          severity: warning
+          plane: signed-state
+        annotations:
+          summary: "a die consumer REFUSED an artifact (keep-last-good serving)"
+          description: >-
+            One or more REFUSED cycles in the ouranos refreshers within 10m —
+            an artifact failed verify-at-consume. The consumer keeps serving
+            its last-good state; investigate the publish side.
+
+      # The refusal counter going absent means the collection path itself
+      # broke — silence must not look like health.
+      - alert: SignedStateCollectionDown
+        expr: absent(promtail_custom_refresher_refused_total)
+        for: 15m
+        labels:
+          severity: warning
+          plane: signed-state
+        annotations:
+          summary: "signed-state log collection is down (no refusal counter)"
+          description: >-
+            promtail's derived refusal counter is absent — the docker-log
+            collection path (promtail → collector → Prometheus) is broken;
+            refusals would currently go unseen.

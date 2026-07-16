@@ -1,0 +1,42 @@
+# Hemera promtail — docker-log collection for the signed-state spine
+# (Golden Braid B3). Docker service discovery (name-stable across container
+# recreates, unlike file paths keyed on container ids) keeps ONLY the
+# ouranos-* containers — the PDP and its die refreshers. Lines push to Loki
+# with a `container` label; a metrics pipeline stage derives
+# promtail_custom_refresher_refused_total from REFUSED lines (scraped by the
+# collector; alerted in prometheus rules/signed-state.yml).
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /positions/positions.yaml
+
+clients:
+  - url: http://hemera-loki:3100/loki/api/v1/push
+
+scrape_configs:
+  - job_name: signed-state
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 30s
+    relabel_configs:
+      - source_labels: ["__meta_docker_container_name"]
+        regex: "/(ouranos-.*)"
+        target_label: container
+      - source_labels: ["container"]
+        regex: ".+"
+        action: keep
+    pipeline_stages:
+      - match:
+          selector: '{container=~"ouranos-refresher.*"}'
+          stages:
+            - regex:
+                expression: ".*(?P<refused>REFUSED).*"
+            - metrics:
+                refresher_refused_total:
+                  type: Counter
+                  description: "die refusals observed in refresher logs"
+                  source: refused
+                  config:
+                    action: inc
