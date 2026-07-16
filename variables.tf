@@ -65,20 +65,22 @@ variable "otlp_tailnet_ip" {
 
 # ---------------------------------------------------------------------------
 # Grafana admin password. Greenfield default; at deploy, override via
-# TF_VAR_grafana_admin_password sourced from bws (pantheon project).
+# TF_VAR_grafana_admin_password sourced from Calypso (prod /hemera:
+# HEMERA_GRAFANA_ADMIN_PASSWORD).
 # ---------------------------------------------------------------------------
 variable "grafana_admin_password" {
   type        = string
-  description = "Grafana admin password (break-glass local admin). Override at apply from bws; never commit a real value."
+  description = "Grafana admin password (break-glass local admin). Override at apply from Calypso; never commit a real value."
   sensitive   = true
   default     = "admin"
 }
 
 # ---------------------------------------------------------------------------
 # Aether DB scrape credential — the hemera_monitor role (pg_monitor) the OTel
-# postgresql receiver authenticates as. Override at apply from bws (pantheon:
-# AETHER_MONITOR_PASSWORD); never commit a real value. Empty default => the
-# receiver fails auth (safe: no plaintext fallback).
+# postgresql receiver authenticates as. Override at apply from Calypso (prod
+# /misc: AETHER_MONITOR_PASSWORD); never commit a real value. Empty default =>
+# the receiver fails config validation and the collector crashloops (safe: no
+# plaintext fallback) — see the Deploy recipe in README.md.
 # ---------------------------------------------------------------------------
 variable "aether_monitor_password" {
   type        = string
