@@ -28,3 +28,7 @@ CLAUDE.md
 # Gemini Code Reviews
 2026-07-09 Gemini * Code Review.md
 
+
+# tofu plan files embed sensitive variable values — never commit
+*.tfplan
+tfplan

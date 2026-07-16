@@ -5,8 +5,9 @@ traces/metrics/logs to, the LGTM backends that store each signal, and the Grafan
 that renders them. One substrate star on nas01.
 
 A Forge **substrate star**: its runtime is declared as `kreuzwerker/docker`
-resources (`main.tf`), deployed through **Nereus** (OpenTofu) as a standalone root
-sharing the Nereus PG state backend — never hand-composed. All images are
+resources (`main.tf`), applied with OpenTofu as a standalone root sharing the
+fleet's PG state backend (the `tofu` DB, one schema per root) — never
+hand-composed. All images are
 **upstream** (no custom build); each service's config is injected via Tofu `upload`
 blocks. Health is judged by **Nyx**, so this layer stays dumb (`restart=unless-stopped`).
 
@@ -43,7 +44,7 @@ fronted by Caddy/tsidp SSO at deploy — a loopback-only host port
 | :-- | :-- |
 | `star.toml` | the star manifest (identity, charter, seams) |
 | `main.tf` | the LGTM stack as docker resources |
-| `backend.tf` | shared Nereus PG state (schema `hemera`) |
+| `backend.tf` | shared fleet PG state (schema `hemera`) |
 | `providers.tf` / `versions.tf` | docker provider config + Tofu/provider version pins |
 | `variables.tf` | image pins (renovate-bumped), retention, grafana secret |
 | `config/otel-collector.yaml` | receivers → per-signal exporters |
@@ -54,16 +55,35 @@ fronted by Caddy/tsidp SSO at deploy — a loopback-only host port
 
 ## Deploy
 
-The parent runs the live apply on nas01 (never from a worktree — shared state):
+The parent runs the live apply on nas01, from `~/hemera` (never from a worktree —
+shared state). Hemera is not in `rob/infra`'s services catalog (it's a
+multi-container substrate root, not an app star); deploys stay manual on nas01.
+
+Secrets come from **Calypso** (Infisical) via the nas01 machine identity. Both
+TF_VARs are **mandatory**: an apply without `TF_VAR_aether_monitor_password`
+recreates `hemera-otelcol` with an empty postgresql-receiver password and the
+collector crashloops on config validation.
 
 ```bash
-export PG_CONN_STR="postgres://forge:<pw>@100.93.64.106:5432/tofu?sslmode=disable"
-export TF_VAR_docker_host="unix:///var/run/docker.sock"   # when applying on nas01
-export TF_VAR_grafana_admin_password="<from bws>"
+# one-time: init the pg backend (conn_str never committed)
 tofu init -backend-config="conn_str=$PG_CONN_STR"
-tofu plan
-tofu apply
+
+# every plan/apply — machine-identity login, then run with both secrets mapped
+set -a; . ~/.config/infisical/nas01.env; set +a
+export INFISICAL_TOKEN="$(infisical login --method=universal-auth \
+  --client-id="$INFISICAL_UNIVERSAL_AUTH_CLIENT_ID" \
+  --client-secret="$INFISICAL_UNIVERSAL_AUTH_CLIENT_SECRET" \
+  --domain="$INFISICAL_API_URL" --silent --plain)"
+infisical run --projectId "$INFISICAL_WORKSPACE_ID" --env prod --recursive --path / --silent -- \
+  bash -c 'export TF_VAR_aether_monitor_password="$AETHER_MONITOR_PASSWORD" \
+                  TF_VAR_grafana_admin_password="$HEMERA_GRAFANA_ADMIN_PASSWORD" \
+                  TF_VAR_docker_host="unix:///var/run/docker.sock"; \
+           tofu apply'
 ```
+
+Calypso prod holds `AETHER_MONITOR_PASSWORD` under `/misc` and
+`HEMERA_GRAFANA_ADMIN_PASSWORD` under `/hemera` — hence `--recursive --path /`.
+On nas01 `tofu` lives at `~/.local/bin/tofu` (not on the non-interactive PATH).
 
 The external nets (`mnemosyne-net`, `pantheon`) must already exist on the daemon.
 

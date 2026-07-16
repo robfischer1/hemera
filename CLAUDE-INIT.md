@@ -29,7 +29,7 @@ no host paths, no rebuild) → `networks_advanced`.
 | :-- | :-- |
 | `star.toml` | Star manifest: identity (`name`, `cluster`), charter, interface (`sync = ["otlp"]`), observability (`exports = ["metrics"]`), and the `[governance]` policy-bundle pin (tag + digest) the admission gate verifies |
 | `main.tf` | All five `docker_container` resources + the private `hemera-net` docker network + the `ext_nets` local (`mnemosyne-net`, `pantheon`) attached by name, never declared |
-| `backend.tf` | Tofu `pg` backend, `schema_name = "hemera"` — shared Nereus Postgres state DB, distinct schema per star |
+| `backend.tf` | Tofu `pg` backend, `schema_name = "hemera"` — shared fleet Postgres state DB, distinct schema per star |
 | `providers.tf` | `docker` provider, `host = var.docker_host` |
 | `variables.tf` | Every tunable: image tags (`otelcol_image`, `prometheus_image`, `loki_image`, `tempo_image`, `grafana_image`), `metrics_retention` (730d), `otlp_tailnet_ip`, `grafana_admin_password` (sensitive), `grafana_domain`, `grafana_host_port` |
 | `versions.tf` | `required_version >= 1.8.0`, `kreuzwerker/docker ~> 3.0` |
@@ -59,19 +59,34 @@ points are:
 ## Build / Test / Run
 
 No build. No test suite. No local "run" beyond `tofu plan`/`tofu apply` against
-the real nas01 Docker daemon and the shared Nereus PG state — there is nothing to
+the real nas01 Docker daemon and the shared fleet PG state — there is nothing to
 execute in a worktree; deploys are single-apply against shared state, done by the
-parent context only.
+parent context only. Secrets come from **Calypso** (Infisical) via the nas01
+machine identity — both TF_VARs below are **mandatory**; an apply without
+`TF_VAR_aether_monitor_password` recreates `hemera-otelcol` with an empty
+postgresql-receiver password and the collector crashloops on config validation.
 
 ```bash
-# Deploy (nas01 only — never from a worktree; state is shared with the rest of the fleet)
-export PG_CONN_STR="postgres://forge:<pw>@100.93.64.106:5432/tofu?sslmode=disable"
-export TF_VAR_docker_host="unix:///var/run/docker.sock"
-export TF_VAR_grafana_admin_password="<from bws>"
+# Deploy (nas01 only, from ~/hemera — never from a worktree; state is shared fleet-wide)
+# one-time: init the pg backend (conn_str never committed)
 tofu init -backend-config="conn_str=$PG_CONN_STR"
-tofu plan
-tofu apply
+
+# every plan/apply — machine-identity login, then run with both secrets mapped
+set -a; . ~/.config/infisical/nas01.env; set +a
+export INFISICAL_TOKEN="$(infisical login --method=universal-auth \
+  --client-id="$INFISICAL_UNIVERSAL_AUTH_CLIENT_ID" \
+  --client-secret="$INFISICAL_UNIVERSAL_AUTH_CLIENT_SECRET" \
+  --domain="$INFISICAL_API_URL" --silent --plain)"
+infisical run --projectId "$INFISICAL_WORKSPACE_ID" --env prod --recursive --path / --silent -- \
+  bash -c 'export TF_VAR_aether_monitor_password="$AETHER_MONITOR_PASSWORD" \
+                  TF_VAR_grafana_admin_password="$HEMERA_GRAFANA_ADMIN_PASSWORD" \
+                  TF_VAR_docker_host="unix:///var/run/docker.sock"; \
+           tofu apply'
 ```
+
+Calypso prod holds `AETHER_MONITOR_PASSWORD` under `/misc` and
+`HEMERA_GRAFANA_ADMIN_PASSWORD` under `/hemera` (hence `--recursive --path /`);
+on nas01 `tofu` lives at `~/.local/bin/tofu`, off the non-interactive PATH.
 
 CI (`admit.yml`) runs on every PR: installs `uv`/`conftest`/`cosign`/`syft`/`oras`,
 pulls+verifies the pinned governance bundle from `star.toml`'s `[governance]`
@@ -107,9 +122,9 @@ via `uv run --no-project`.
   `hemera-net` subnet (`192.168.32.0/20`) — Grafana itself is deliberately off
   `mnemosyne-net` so nothing else on the fleet can spoof the header.
   `grafana_admin_password` is a break-glass local-admin fallback only; the real
-  value comes from bws at apply (`TF_VAR_grafana_admin_password`), never
-  committed.
-- **State is shared, not per-repo.** `backend.tf` points at the Nereus PG backend
+  value comes from Calypso at apply (`HEMERA_GRAFANA_ADMIN_PASSWORD` →
+  `TF_VAR_grafana_admin_password`), never committed.
+- **State is shared, not per-repo.** `backend.tf` points at the fleet PG backend
   with `schema_name = "hemera"` — this is one schema in a shared `tofu` database
   on nas01, not an isolated backend. Never run `tofu apply` from an ephemeral
   worktree; it would race the parent's state.
@@ -127,9 +142,9 @@ via `uv run --no-project`.
 
 ## Related repos
 
-- **Nereus** — the OpenTofu root/state owner Hemera's `backend.tf` shares a PG
-  backend with; Hemera is deployed as one of Nereus's standalone roots, never
-  hand-composed into it.
+- **rob/infra** — the constellation IaC home (platform + services deploy lanes);
+  Hemera shares its PG state backend (the `tofu` DB) as a standalone root but is
+  not in the services catalog — it deploys manually, never generated into it.
 - **constellation** (`forgejo.notusmi.com/rob/constellation.git`) — supplies the
   `StarManifest` schema `star.toml` conforms to and the `constellation.gate` /
   `constellation.gate` policy-input builder the admission CI step runs.
