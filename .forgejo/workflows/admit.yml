@@ -32,7 +32,7 @@ jobs:
     name: Admission gate
     runs-on: nas01
     container:
-      image: catthehacker/ubuntu:act-22.04
+      image: catthehacker/ubuntu:act-22.04@sha256:aeaa74e62723c9538ed865e2de82617bb8c2e2c84ef36f8ba150a9dbb7ad39a3
     # The runner's default `run` shell is sh (dash), which rejects
     # `set -o pipefail` — every step here assumes bash. Born-with defect in
     # the copier tofu-substrate variant; fix upstream in tofu-repo-template.
